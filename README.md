@@ -1,0 +1,1 @@
+Assumption 1: Result will return 0 after a call has been made to remove the strings it had
