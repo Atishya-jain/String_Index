@@ -1,5 +1,15 @@
-import threading
+import multiprocessing
+import time
+from multiprocessing.pool import ThreadPool
+from multiprocessing import Pool
+import random 
+import string as my_str 
 
+my_mutex = multiprocessing.Lock()
+flag_A = 0
+flag_B = 0
+MAX_PROCESSES = 8
+# pool = ThreadPool(processes=4)
 class Node:
 	def __init__(self):
 		# dictionary of pointers to child indexed by alphabet
@@ -9,19 +19,33 @@ class Node:
 		self.is_end_of_word = [0,False,()]
 
 class Result:
-	def __init__(self, strs, sizes, time):
+	def __init__(self, sizes, string, timestamp):
 		self.num_str = sizes
-		self.strings = strs
-		self.time_stamp = time
+		self.strings = string
+		self.time_stamp = timestamp
 
 	def size(self):
 		return self.num_str
 
 	def remove(self, str_obj):
+		global my_mutex, flag_A, flag_B
+		# You can only acquire lock if any read operation is not going on
+		while True:
+			# sleep for 1 ms to allow other threads to start else this process will go on
+			time.sleep(0.001)
+			if (flag_A == 0) and (flag_B == 0):
+				my_mutex.acquire()
+				flag_A = 1
+				flag_B = 1
+				break
+		# start this function		
 		deleted = 0
 		for x in self.strings:
 			deleted = deleted + str_obj.delete(x, self.time_stamp)
 		self.num_str = 0
+		flag_A = 0
+		flag_B = 0
+		my_mutex.release()
 		return deleted
 
 class StringIndex:
@@ -35,6 +59,17 @@ class StringIndex:
 
 	# end is my special end character
 	def insert(self, ins_str):
+		global my_mutex, flag_A, flag_B
+		# You can only acquire lock if any read operation is not going on
+		while True:
+			# sleep for 1 ms to allow other threads to start else this process will go on
+			time.sleep(0.001)
+			if (flag_A == 0) and (flag_B == 0):
+				my_mutex.acquire()
+				flag_A = 1
+				flag_B = 1
+				break
+		# Start this function		
 		self.timestamp = self.timestamp + 1
 		# Insert the word in prefix tree
 		curr_pref_node = self.root_pref
@@ -47,10 +82,11 @@ class StringIndex:
 			else:
 				curr_pref_node.children[ins_str[i]] = Node()
 				curr_pref_node = curr_pref_node.children[ins_str[i]]
-			
 			# Inserting end pointer and maintaing count of duplicates
 			if i == size-1:
-				curr_pref_node.children["end"] = Node()
+				# print(ins_str[i], end = " ")
+				if "end" not in curr_pref_node.children:
+					curr_pref_node.children["end"] = Node()
 				curr_pref_node.children["end"].is_end_of_word[2] = curr_pref_node.children["end"].is_end_of_word[2] + (self.timestamp,)
 				curr_pref_node.children["end"].is_end_of_word[1] = True
 				curr_pref_node.children["end"].is_end_of_word[0] = curr_pref_node.children["end"].is_end_of_word[0] + 1
@@ -69,14 +105,24 @@ class StringIndex:
 			
 			# Inserting end pointer and maintaining the ocunt of duplicates
 			if i == size-1:
-				curr_suff_node.children["end"] = Node()
+				if "end" not in curr_suff_node.children:
+					curr_suff_node.children["end"] = Node()
 				curr_suff_node.children["end"].is_end_of_word[2] = curr_suff_node.children["end"].is_end_of_word[2] + (self.timestamp,)
 				curr_suff_node.children["end"].is_end_of_word[1] = True
 				curr_suff_node.children["end"].is_end_of_word[0] = curr_suff_node.children["end"].is_end_of_word[0] + 1
-
-		return ans			
+		flag_A = 0
+		flag_B = 0
+		my_mutex.release()
+		return ans
+		# ret[0] = ans			
 
 	def stringsWithPrefix (self, ins_str):
+		global my_mutex, flag_A
+		loc_flag = False
+		if flag_A == 1:
+			loc_flag = True
+			my_mutex.acquire()
+			flag_A = 2		
 		# Tree Root
 		curr_pref_node = self.root_pref
 		size = len(ins_str)
@@ -93,13 +139,29 @@ class StringIndex:
 		# If found recurse on children to out pur Result strings and their count
 		if found:
 			[strs, sizes] = self.recurse (curr_pref_node, ins_str, 0)
-			res = Result(strs, sizes, self.timestamp)
+			res = Result(sizes, strs, self.timestamp)
+			# res.num_str = sizes
+			# res.strings = strs
+			# res.time_stamp = self.timestamp
 		else:
-			res = Result((), 0, self.timestamp)
+			res = Result(0, (), self.timestamp)
+			# res.num_str = 0
+			# res.strings = ()
+			# res.time_stamp = self.timestamp
 
-		return res
+		flag_A = 0
+		if loc_flag:
+			my_mutex.release()
+		return res	
 
 	def stringsWithSuffix (self, ins_str):
+		global my_mutex, flag_B
+		loc_flag = False
+		if flag_B == 1:
+			loc_flag = True
+			my_mutex.acquire()
+			flag_B = 2		
+
 		# invert the string to search in inverted prefix tree
 		rev_ins_str = ins_str[::-1]
 
@@ -119,12 +181,21 @@ class StringIndex:
 		# If found recurse on children to out pur Result strings and their count
 		if found:
 			[strs, sizes] = self.recurse (curr_suff_node, rev_ins_str, 1)
-			res = Result(strs, sizes, self.timestamp)
+			res = Result(sizes, strs, self.timestamp)
+			# res.num_str = sizes
+			# res.strings = strs
+			# res.time_stamp = self.timestamp
 		else:
-			res = Result((), 0, self.timestamp)
-
+			res = Result(0, (), self.timestamp)
+			# res.num_str = 0
+			# res.strings = ()
+			# res.time_stamp = self.timestamp
+		
+		flag_B = 0
+		if loc_flag:
+			my_mutex.release()
 		return res
-	
+
 	def recurse (self, node, string, is_suff):
 		# We return a tuple of strings and number of strings
 		to_ret = [(), 0]
@@ -145,7 +216,7 @@ class StringIndex:
 					return [(temp_str,), node.children["end"].is_end_of_word[0]]
 			elif key == "end" and size != 1: 
 				to_ret[0] = to_ret[0] + (temp_str,)
-				to_ret[1] = to_ret[1] + 1
+				to_ret[1] = to_ret[1] + node.children["end"].is_end_of_word[0]
 			else:
 				temp_str = temp_str + key
 				var = self.recurse(node.children[key], temp_str, is_suff)
@@ -211,27 +282,46 @@ class StringIndex:
 			else:
 				return (1,0)
 
+# This function will take in queries of the user and pass into the data structure
+def wrapper (input):
+	query = input[0]
+	datastruture = input[1]
+	# insert
+	if query[0] == 0:
+		return datastruture.insert(query[1])
+	# prefix query with size()
+	elif query[0] == 1 and query[1] == 0:	
+		return datastruture.stringsWithPrefix(query[2]).size()
+	# prefix query with remove
+	elif query[0] == 1 and query[1] == 1:	
+		return datastruture.stringsWithPrefix(query[2]).remove(datastruture)
+	# suffix query with size()
+	elif query[0] == 2 and query[1] == 0:	
+		return datastruture.stringsWithSuffix(query[2]).size()
+	# suffix query with remove
+	elif query[0] == 2 and query[1] == 1:	
+		return datastruture.stringsWithSuffix(query[2]).remove(datastruture)
+		
 if __name__ == '__main__':
 	
+	start_time = time.time()
 	# Synchronous benchtest
+	print ("---------------Synchronous Testing-----------------")
+	strings_to_insert = ["atishya","atishya", "ati","avaljot","aval","mayank","mayank","maya","mankaran","manku","banana","ant"]
+	print ("strings_to_insert: ", end = " ")
+	print (strings_to_insert)
+	
 	test = StringIndex()
-	test.insert("atishya")
-	test.insert("ati")
-	test.insert("avaljot")
-	test.insert("aval")
-	test.insert("mayank")
-	test.insert("maya")
-	test.insert("mankaran")
-	test.insert("manku")
-	test.insert("banana")
-	test.insert("ant")
+	for string in strings_to_insert:
+		test.insert(string)
 
+	print ("-------------------Test 1 ------------------------")	
 	obj0 = test.stringsWithPrefix("ma")
 	for s in obj0.strings:
 		print (s,end = " ")
 		print()
-	print (obj0.size())
-	print ("-----------------------------------------------------")
+	print (obj0.remove(test))
+	print ("-------------------Test 2---------------------------")
 
 	obj1 = test.stringsWithSuffix("ot")
 	for s in obj1.strings:
@@ -239,7 +329,7 @@ if __name__ == '__main__':
 		print()
 	print(obj1.size())
 
-	print ("-----------------------------------------------------")
+	print ("-------------------Test 3--------------------------")
 
 	obj2 = test.stringsWithSuffix("ya")
 	for s in obj2.strings:
@@ -251,7 +341,7 @@ if __name__ == '__main__':
 	print("obj0 removals: " + str(obj0.remove(test)))
 	print("obj0 after removals: " + str(obj0.size()))
 
-	print ("-----------------------------------------------------")
+	print ("--------------------Test 4--------------------------")
 	
 	obj21 = test.stringsWithPrefix("ma")
 	for s in obj21.strings:
@@ -259,20 +349,91 @@ if __name__ == '__main__':
 		print()
 	print (obj21.size())
 
-	print ("-----------------------------------------------------")
+	print ("---------------------Test 5--------------------------")
 
 	obj3 = test.stringsWithPrefix("av")
 	for s in obj3.strings:
 		print (s,end = " ")
 		print()
 	print (obj3.size())
-	print ("-----------------------------------------------------")
+	print ("---------------------Test 6-------------------------")
 	
 	obj4 = test.stringsWithPrefix("at")
 	for s in obj4.strings:
 		print (s,end = " ")
 		print()
 	print (obj4.size())
-
+	print ("---------------------Test 7-----------------------")
 
 	# Asynchrounous testing
+	# start_async_time = time.time()
+	# test_async = StringIndex()
+	# suff_to_test = ["ya","ti","jot","al"]
+	# pref_to_test = ["ati","av","ma"]
+	# processes = []
+	
+	# results = [Result()] * len(strings_to_insert)
+	# insert_async_results = []
+	# count = 0
+	# insert_async_results = pool.map(test_async.insert, strings_to_insert)
+	# for string in strings_to_insert:
+		# processes.append(threading.Thread(target = test_async.insert(string, insert_async_results[count])))
+		# insert_async_results.append(pool.apply_async(test_async.insert, (string,)))
+		# processes.append(multiprocessing.Process(target = test_async.insert, args = (string,)))
+		# processes[-1].start()
+		# count += 1
+
+	# for res in insert_async_results:
+	# 	print(res)	
+	# for thread in processes:
+		# thread.join()		
+	# print ("time taken to async insert = " + str(time.time() - start_async_time))
+
+	# query = [0,"string"] -> insert string
+	# query = [1, 0, "string"] -> prefix search of string and get size
+	# query = [1, 1, "string"] -> prefix search of string and remove those elements
+	# query = [2, 0, "string"] -> suffix search of string and get size
+	# query = [2, 1, "string"] -> suffix search of string and remove those elements
+	query = []
+	# print(my_str.ascii_uppercase)
+	for i in range(10):
+		N = random.randint(5,12)
+		query.append([0,''.join(random.choice(my_str.ascii_uppercase + my_str.ascii_lowercase) for _ in range(N))])
+	for i in range(10,20):
+		prob = random.randint(0,22)
+		N = random.randint(0,3)
+		if(prob < 2):
+			query.append([0,''.join(random.choice(my_str.ascii_uppercase + my_str.ascii_lowercase) for _ in range(N))])
+		elif prob < 7:
+			query.append([1, 0,''.join(random.choice(my_str.ascii_uppercase + my_str.ascii_lowercase) for _ in range(N))])
+		elif prob < 12:
+			query.append([1, 1,''.join(random.choice(my_str.ascii_uppercase + my_str.ascii_lowercase) for _ in range(N))])
+		elif prob < 17:
+			query.append([2, 0, ''.join(random.choice(my_str.ascii_uppercase + my_str.ascii_lowercase) for _ in range(N))])
+		else:
+			query.append([2, 1, ''.join(random.choice(my_str.ascii_uppercase + my_str.ascii_lowercase) for _ in range(N))])
+	
+	print ("--------------------------Random Test case------------------------")
+	test1 = StringIndex()			
+	test1_results = []
+	start_time_test1 = time.time()
+	for i in query:
+		test1_results.append(wrapper((i, test1)))
+	
+	end_time_test1 = time.time()
+	async_query = []
+	test1_async = StringIndex()
+	for q in query:
+		async_query.append([q,test1_async])
+
+	pool = Pool(processes = 4)
+	test1_async_results = pool.map(wrapper, async_query)
+	end_time_async_test1 = time.time()
+	print ("sync operations time: " + str(end_time_test1 - start_time_test1))
+	print ("async operations time on same operations: " + str(end_time_async_test1 - end_time_test1))
+	
+	for i in test1_results:
+		print(i, end = " ")
+	print ("----------------------")
+	for i in test1_async_results:
+		print(i, end = " ")
