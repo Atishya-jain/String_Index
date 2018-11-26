@@ -29,7 +29,7 @@ There are 2 classes StringIndex and Result. StringIndex is the main datastructur
 1. I have maintained a uncompressed prefix tree. It can be compresses to make it even more space efficient
 
 # Usage
- - python stridx.py
+ - python3 stridx.py
  - This will run various bench test cases and show the results
  - 1st bench test is addition of patterned strings to check whether if data structure is working correct
  - Then there are 2 test case evaluations, in which we add random queries with some probability where writes have somewhat lower probability. I made a wrapper function that handles the queries and returns the results.
