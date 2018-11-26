@@ -1,11 +1,12 @@
-import multiprocessing
+# import multiprocessing
 import time
-from multiprocessing.pool import ThreadPool
-from multiprocessing import Pool
+# from multiprocessing.pool import ThreadPool
+# from multiprocessing import Pool
+import threading
 import random 
 import string as my_str 
 
-my_mutex = multiprocessing.Lock()
+my_mutex = threading.Lock()
 flag_A = 0
 flag_B = 0
 MAX_PROCESSES = 8
@@ -72,7 +73,7 @@ class StringIndex:
 		# Start this function		
 		self.timestamp = self.timestamp + 1
 		# Insert the word in prefix tree
-		curr_pref_node = self.root_pref
+		curr_pref_node = self.root_pref		
 		size = len(ins_str)
 		ans = 0
 		# Loop over word length
@@ -91,6 +92,8 @@ class StringIndex:
 				curr_pref_node.children["end"].is_end_of_word[1] = True
 				curr_pref_node.children["end"].is_end_of_word[0] = curr_pref_node.children["end"].is_end_of_word[0] + 1
 				ans = curr_pref_node.children["end"].is_end_of_word[0] - 1
+				# self.print_tree(self.root_pref)
+				# print("YO: " + ins_str[i])
 		
 		# Insert the word in inverted prefix tree i.e prefix tree of inverted strings
 		curr_suff_node = self.root_suff
@@ -110,9 +113,9 @@ class StringIndex:
 				curr_suff_node.children["end"].is_end_of_word[2] = curr_suff_node.children["end"].is_end_of_word[2] + (self.timestamp,)
 				curr_suff_node.children["end"].is_end_of_word[1] = True
 				curr_suff_node.children["end"].is_end_of_word[0] = curr_suff_node.children["end"].is_end_of_word[0] + 1
+		my_mutex.release()
 		flag_A = 0
 		flag_B = 0
-		my_mutex.release()
 		return ans
 		# ret[0] = ans			
 
@@ -282,30 +285,37 @@ class StringIndex:
 			else:
 				return (1,0)
 
+	def print_tree(self, root):
+		# print ("HI")
+		for key in root.children:
+			print (key, end = " ")
+			self.print_tree(root.children[key])
+
 # This function will take in queries of the user and pass into the data structure
 def wrapper (input):
 	query = input[0]
 	datastruture = input[1]
 	# insert
 	if query[0] == 0:
-		return datastruture.insert(query[1])
+		input[2].append(datastruture.insert(query[1]))
 	# prefix query with size()
 	elif query[0] == 1 and query[1] == 0:	
-		return datastruture.stringsWithPrefix(query[2]).size()
+		input[2].append(datastruture.stringsWithPrefix(query[2]).size())
 	# prefix query with remove
 	elif query[0] == 1 and query[1] == 1:	
-		return datastruture.stringsWithPrefix(query[2]).remove(datastruture)
+		input[2].append(datastruture.stringsWithPrefix(query[2]).remove(datastruture))
 	# suffix query with size()
 	elif query[0] == 2 and query[1] == 0:	
-		return datastruture.stringsWithSuffix(query[2]).size()
+		input[2].append(datastruture.stringsWithSuffix(query[2]).size())
 	# suffix query with remove
 	elif query[0] == 2 and query[1] == 1:	
-		return datastruture.stringsWithSuffix(query[2]).remove(datastruture)
+		input[2].append(datastruture.stringsWithSuffix(query[2]).remove(datastruture))
 		
 if __name__ == '__main__':
 	
 	start_time = time.time()
 	# Synchronous benchtest
+	# Testing just to ensure the basic data structure is working well
 	print ("---------------Synchronous Testing-----------------")
 	strings_to_insert = ["atishya","atishya", "ati","avaljot","aval","mayank","mayank","maya","mankaran","manku","banana","ant"]
 	print ("strings_to_insert: ", end = " ")
@@ -314,7 +324,7 @@ if __name__ == '__main__':
 	test = StringIndex()
 	for string in strings_to_insert:
 		test.insert(string)
-
+	test.print_tree(test.root_pref)
 	print ("-------------------Test 1 ------------------------")	
 	obj0 = test.stringsWithPrefix("ma")
 	for s in obj0.strings:
@@ -377,16 +387,16 @@ if __name__ == '__main__':
 	# count = 0
 	# insert_async_results = pool.map(test_async.insert, strings_to_insert)
 	# for string in strings_to_insert:
-		# processes.append(threading.Thread(target = test_async.insert(string, insert_async_results[count])))
-		# insert_async_results.append(pool.apply_async(test_async.insert, (string,)))
-		# processes.append(multiprocessing.Process(target = test_async.insert, args = (string,)))
-		# processes[-1].start()
-		# count += 1
+	# 	processes.append(threading.Thread(target = test_async.insert(string, insert_async_results[count])))
+	# 	insert_async_results.append(pool.apply_async(test_async.insert, (string,)))
+	# 	processes.append(multiprocessing.Process(target = test_async.insert, args = (string,)))
+	# 	processes[-1].start()
+	# 	count += 1
 
 	# for res in insert_async_results:
 	# 	print(res)	
 	# for thread in processes:
-		# thread.join()		
+	# 	thread.join()		
 	# print ("time taken to async insert = " + str(time.time() - start_async_time))
 
 	# query = [0,"string"] -> insert string
@@ -396,10 +406,10 @@ if __name__ == '__main__':
 	# query = [2, 1, "string"] -> suffix search of string and remove those elements
 	query = []
 	# print(my_str.ascii_uppercase)
-	for i in range(10):
+	for i in range(5):
 		N = random.randint(5,12)
 		query.append([0,''.join(random.choice(my_str.ascii_uppercase + my_str.ascii_lowercase) for _ in range(N))])
-	for i in range(10,20):
+	for i in range(5,10):
 		prob = random.randint(0,22)
 		N = random.randint(0,3)
 		if(prob < 2):
@@ -412,28 +422,35 @@ if __name__ == '__main__':
 			query.append([2, 0, ''.join(random.choice(my_str.ascii_uppercase + my_str.ascii_lowercase) for _ in range(N))])
 		else:
 			query.append([2, 1, ''.join(random.choice(my_str.ascii_uppercase + my_str.ascii_lowercase) for _ in range(N))])
-	
+	print (query)
 	print ("--------------------------Random Test case------------------------")
 	test1 = StringIndex()			
 	test1_results = []
 	start_time_test1 = time.time()
 	for i in query:
-		test1_results.append(wrapper((i, test1)))
-	
+		wrapper([i, test1,test1_results])
+	print("Strings left in tree after sequential execution of moves")
+	print(test1.stringsWithPrefix('').strings)
+
 	end_time_test1 = time.time()
 	async_query = []
 	test1_async = StringIndex()
 	for q in query:
 		async_query.append([q,test1_async])
 
-	pool = Pool(processes = 4)
-	test1_async_results = pool.map(wrapper, async_query)
+	threads = []
+	test1_async_results = []	
+	for i in query:
+		threads.append(threading.Thread(target = wrapper, args = ([i, test1_async, test1_async_results],)))
+		threads[-1].start()
+
+	for thread in threads:
+		thread.join()
+	
+	print("Strings left in tree after parallel execution of moves")
+	print(test1_async.stringsWithPrefix('').strings)
+
 	end_time_async_test1 = time.time()
 	print ("sync operations time: " + str(end_time_test1 - start_time_test1))
 	print ("async operations time on same operations: " + str(end_time_async_test1 - end_time_test1))
 	
-	for i in test1_results:
-		print(i, end = " ")
-	print ("----------------------")
-	for i in test1_async_results:
-		print(i, end = " ")
