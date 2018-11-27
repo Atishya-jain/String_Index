@@ -36,6 +36,7 @@ There are 2 classes StringIndex and Result. StringIndex is the main datastructur
  - Then there are 2 test case evaluations, in which we add random queries with some probability where writes have somewhat lower probability. I made a wrapper function that handles the queries and returns the results.
  - We can compare the time taken for both the sequential resolution of the queries and parallel resolution to see which take more time.
  - We can also compare the end trees after both sequential and parallel query resoultion is over. If there is no query like removal of a huge amount of tree that can make a significant difference on the basis of its execution order, there should be same strings available with the trees.
+ - Test cases are small for visualisation purposes. We can increase the number of random queries to test the timings of parallel and sequential operations. But for large query sets, as they are random end tree usually ends up empty as there are a lot of empty string prefix/suffix queries to delete them. One can play around with the probabilities to fix that for simulation
  
 # Author
  - Atishya Jain
