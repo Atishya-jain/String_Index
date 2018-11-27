@@ -318,12 +318,16 @@ if __name__ == '__main__':
 	test = StringIndex()
 	for string in strings_to_insert:
 		test.insert(string)
+
+	# Checking counting of duplicate mayank
 	print ("-------------------Test 1 ------------------------")	
 	obj0 = test.stringsWithPrefix("ma")
 	for s in obj0.strings:
 		print (s,end = " ")
 		print()
 	print (obj0.size())
+	
+	# Checking suffix tree after one operation
 	print ("-------------------Test 2---------------------------")
 
 	obj1 = test.stringsWithSuffix("ot")
@@ -332,6 +336,8 @@ if __name__ == '__main__':
 		print()
 	print(obj1.size())
 
+	# In this suffix ya is in 2 atishya and 1 maya. After we delete this, result size of object 0 should still be 5 
+	# and it should remove 4 strings as maya will be removed in this
 	print ("-------------------Test 3--------------------------")
 
 	obj2 = test.stringsWithSuffix("ya")
@@ -344,6 +350,7 @@ if __name__ == '__main__':
 	print("obj0 removals: " + str(obj0.remove(test)))
 	print("obj0 after removals: " + str(obj0.size()))
 
+	# Should return 0 as all strings should have been deleted
 	print ("--------------------Test 4--------------------------")
 	
 	obj21 = test.stringsWithPrefix("ma")
@@ -352,6 +359,7 @@ if __name__ == '__main__':
 		print()
 	print (obj21.size())
 
+	# Checking the status of other strings in the tree
 	print ("---------------------Test 5--------------------------")
 
 	obj3 = test.stringsWithPrefix("av")
@@ -359,6 +367,8 @@ if __name__ == '__main__':
 		print (s,end = " ")
 		print()
 	print (obj3.size())
+
+	# both atishya's should have been deleted. So size returned should be 1
 	print ("---------------------Test 6-------------------------")
 	
 	obj4 = test.stringsWithPrefix("at")
@@ -368,13 +378,14 @@ if __name__ == '__main__':
 	print (obj4.size())
 	print ("---------------------Random Test Case Query-----------------------")
 
+	# All queries will go to wrapper function which will parse the queries to make respective calls. Definition is listed below 
+	# about the query structure
 	# query = [0,"string"] -> insert string
 	# query = [1, 0, "string"] -> prefix search of string and get size
 	# query = [1, 1, "string"] -> prefix search of string and remove those elements
 	# query = [2, 0, "string"] -> suffix search of string and get size
 	# query = [2, 1, "string"] -> suffix search of string and remove those elements
 	query = []
-	# print(my_str.ascii_uppercase)
 	for i in range(5):
 		N = random.randint(5,12)
 		query.append([0,''.join(random.choice(my_str.ascii_uppercase + my_str.ascii_lowercase) for _ in range(N))])
