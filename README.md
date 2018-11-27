@@ -24,6 +24,7 @@ There are 2 classes StringIndex and Result. StringIndex is the main datastructur
 1. Time complexity of prefix tree search comes out to be O(log N) if it is balanced
 2. There can be concurrent reads but sequential writes. This is to remove inconsistencies that can arise due to editing of the tree while reading. This means while writing (insert/remove) no other performance can be done on the tree whereas reads can happen simultaneously. Also, writes have to wait if read is going on.
 3. I came to knew about reader-writer lock libraries for python but was unsure if I can use them or not for implementing the behaviour as described for the reader-writer
+4. Empty string will be treated just as another string. It will be already present when there were no inserts and after more insertions it will have a duplicate count and timestamps. So, the database already has one string in it i.e empty string. It will be returned in the strings which have prefix "" or suffix as "". It can also be removed completely just as other strings
 
 # Limitations/ Tradeoff
 1. I have maintained a uncompressed prefix tree. It can be compresses to make it even more space efficient
