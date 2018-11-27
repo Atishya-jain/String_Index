@@ -1,7 +1,4 @@
-# import multiprocessing
 import time
-# from multiprocessing.pool import ThreadPool
-# from multiprocessing import Pool
 import threading
 import random 
 import string as my_str 
@@ -10,7 +7,6 @@ my_mutex = threading.Lock()
 flag_A = 0
 flag_B = 0
 MAX_PROCESSES = 8
-# pool = ThreadPool(processes=4)
 class Node:
 	def __init__(self):
 		# dictionary of pointers to child indexed by alphabet
@@ -53,8 +49,12 @@ class StringIndex:
 	def __init__(self):
 		# Root of prefix tree
 		self.root_pref = Node()
+		self.root_pref.children["end"] = Node()
+		self.root_pref.children["end"].is_end_of_word = [1, True, (0,)]
 		# root of inverted prefix tree
 		self.root_suff = Node()
+		self.root_suff.children["end"] = Node()
+		self.root_suff.children["end"].is_end_of_word = [1, True, (0,)]
 		# Timestamp the inserted string
 		self.timestamp = 0
 
@@ -74,8 +74,21 @@ class StringIndex:
 		self.timestamp = self.timestamp + 1
 		# Insert the word in prefix tree
 		curr_pref_node = self.root_pref		
+		# Insert the word in inverted prefix tree i.e prefix tree of inverted strings
+		curr_suff_node = self.root_suff
+		
 		size = len(ins_str)
 		ans = 0
+		if size == 0:
+			if "end" not in curr_pref_node.children:
+				curr_pref_node.children["end"] = Node()
+				curr_suff_node.children["end"] = Node()
+			curr_pref_node.children["end"].is_end_of_word[0] += 1
+			curr_pref_node.children["end"].is_end_of_word[1] = True
+			curr_pref_node.children["end"].is_end_of_word[2] += (self.timestamp,)
+			curr_suff_node.children["end"].is_end_of_word[0] += 1
+			curr_suff_node.children["end"].is_end_of_word[1] = True
+			curr_suff_node.children["end"].is_end_of_word[2] += (self.timestamp,)
 		# Loop over word length
 		for i in range(size):
 			if ins_str[i] in curr_pref_node.children:
@@ -85,18 +98,13 @@ class StringIndex:
 				curr_pref_node = curr_pref_node.children[ins_str[i]]
 			# Inserting end pointer and maintaing count of duplicates
 			if i == size-1:
-				# print(ins_str[i], end = " ")
 				if "end" not in curr_pref_node.children:
 					curr_pref_node.children["end"] = Node()
 				curr_pref_node.children["end"].is_end_of_word[2] = curr_pref_node.children["end"].is_end_of_word[2] + (self.timestamp,)
 				curr_pref_node.children["end"].is_end_of_word[1] = True
 				curr_pref_node.children["end"].is_end_of_word[0] = curr_pref_node.children["end"].is_end_of_word[0] + 1
 				ans = curr_pref_node.children["end"].is_end_of_word[0] - 1
-				# self.print_tree(self.root_pref)
-				# print("YO: " + ins_str[i])
 		
-		# Insert the word in inverted prefix tree i.e prefix tree of inverted strings
-		curr_suff_node = self.root_suff
 		# Invert the string
 		rev_ins_str = ins_str[::-1]
 		for i in range(size):
@@ -117,7 +125,6 @@ class StringIndex:
 		flag_A = 0
 		flag_B = 0
 		return ans
-		# ret[0] = ans			
 
 	def stringsWithPrefix (self, ins_str):
 		global my_mutex, flag_A
@@ -143,14 +150,8 @@ class StringIndex:
 		if found:
 			[strs, sizes] = self.recurse (curr_pref_node, ins_str, 0)
 			res = Result(sizes, strs, self.timestamp)
-			# res.num_str = sizes
-			# res.strings = strs
-			# res.time_stamp = self.timestamp
 		else:
 			res = Result(0, (), self.timestamp)
-			# res.num_str = 0
-			# res.strings = ()
-			# res.time_stamp = self.timestamp
 
 		flag_A = 0
 		if loc_flag:
@@ -185,14 +186,8 @@ class StringIndex:
 		if found:
 			[strs, sizes] = self.recurse (curr_suff_node, rev_ins_str, 1)
 			res = Result(sizes, strs, self.timestamp)
-			# res.num_str = sizes
-			# res.strings = strs
-			# res.time_stamp = self.timestamp
 		else:
 			res = Result(0, (), self.timestamp)
-			# res.num_str = 0
-			# res.strings = ()
-			# res.time_stamp = self.timestamp
 		
 		flag_B = 0
 		if loc_flag:
@@ -286,7 +281,6 @@ class StringIndex:
 				return (1,0)
 
 	def print_tree(self, root):
-		# print ("HI")
 		for key in root.children:
 			print (key, end = " ")
 			self.print_tree(root.children[key])
@@ -324,13 +318,12 @@ if __name__ == '__main__':
 	test = StringIndex()
 	for string in strings_to_insert:
 		test.insert(string)
-	test.print_tree(test.root_pref)
 	print ("-------------------Test 1 ------------------------")	
 	obj0 = test.stringsWithPrefix("ma")
 	for s in obj0.strings:
 		print (s,end = " ")
 		print()
-	print (obj0.remove(test))
+	print (obj0.size())
 	print ("-------------------Test 2---------------------------")
 
 	obj1 = test.stringsWithSuffix("ot")
@@ -373,31 +366,7 @@ if __name__ == '__main__':
 		print (s,end = " ")
 		print()
 	print (obj4.size())
-	print ("---------------------Test 7-----------------------")
-
-	# Asynchrounous testing
-	# start_async_time = time.time()
-	# test_async = StringIndex()
-	# suff_to_test = ["ya","ti","jot","al"]
-	# pref_to_test = ["ati","av","ma"]
-	# processes = []
-	
-	# results = [Result()] * len(strings_to_insert)
-	# insert_async_results = []
-	# count = 0
-	# insert_async_results = pool.map(test_async.insert, strings_to_insert)
-	# for string in strings_to_insert:
-	# 	processes.append(threading.Thread(target = test_async.insert(string, insert_async_results[count])))
-	# 	insert_async_results.append(pool.apply_async(test_async.insert, (string,)))
-	# 	processes.append(multiprocessing.Process(target = test_async.insert, args = (string,)))
-	# 	processes[-1].start()
-	# 	count += 1
-
-	# for res in insert_async_results:
-	# 	print(res)	
-	# for thread in processes:
-	# 	thread.join()		
-	# print ("time taken to async insert = " + str(time.time() - start_async_time))
+	print ("---------------------Random Test Case Query-----------------------")
 
 	# query = [0,"string"] -> insert string
 	# query = [1, 0, "string"] -> prefix search of string and get size
